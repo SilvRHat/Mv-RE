@@ -73,8 +73,8 @@
 	__typeof__ (v)  _v1 = min(_ma, _v0); \
     max(_mi, _v1); \
 })
-#define lerp(t, a, b) ( a + t * (b - a) )
-
+#define lerp(a, b, t) ( a + t * (b - a) )
+#define invlerp(a, b, v) ( (v - a) / (b - a) )
 
 
 // VECTORS

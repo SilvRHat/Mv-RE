@@ -6,10 +6,16 @@
 
 
 // SOURCE CODE
+
+void SignalSimpleHandler(void (*func)()) {
+    func();
+}
+
 // SignalInit - Initializes a signal to its default connections (none)
     // @param s Signal to initialize
-void SignalInit(SignalInstance* s) {
-    s->_connections = 0;
+void SignalInit(SignalInstance* s, void (*handler)(void*, va_list) ) {
+    s->Connections = 0;
+    s->_handler = handler;
     for (int i=0; i<MAX_SIGNAL_CONNECTIONS; i++) {
         s->_functions[i] = NULL;
     }
@@ -24,7 +30,10 @@ void SignalFire(SignalInstance *s, ...) {
     
     while (s->_functions[i] != NULL) {
         va_start(args, s);
-        ((void(*)())(s->_functions[i]))(args);
+        if (s->_handler==NULL)
+            SignalSimpleHandler(s->_functions[i]);
+        else
+            ((void(*)())(s->_handler))(s->_functions[i], args);
         va_end(args);
         i++;
     }
@@ -35,11 +44,11 @@ void SignalFire(SignalInstance *s, ...) {
     // @param s - Signal to bind function with
     // @param func - Function to bind onto signal
 int SignalConnect(SignalInstance *s, void* func) {
-    if (s->_connections+1==MAX_SIGNAL_CONNECTIONS)
+    if (s->Connections+1==MAX_SIGNAL_CONNECTIONS)
         return -1;
     
-    s->_functions[s->_connections] = func;
-    s->_connections += 1;
+    s->_functions[s->Connections] = func;
+    s->Connections += 1;
     return 0;
 }
 
@@ -47,15 +56,15 @@ int SignalConnect(SignalInstance *s, void* func) {
     // @param s - Signal to disconnect function from
     // @param func - Function to disconnect
 int SignalDisconnect(SignalInstance *s, void* func) {
-    for (int i=0; i<s->_connections; i++) {
+    for (int i=0; i<s->Connections; i++) {
         if (s->_functions[i]!=func) 
             continue;
         
-        for (; i<s->_connections-1; i++) 
+        for (; i<s->Connections-1; i++) 
             s->_functions[i]=s->_functions[i+1];
     
-        s->_connections--;
-        s->_functions[s->_connections]=NULL;
+        s->Connections--;
+        s->_functions[s->Connections]=NULL;
         return 0;
     }
     return -1;
@@ -66,36 +75,5 @@ int SignalDisconnect(SignalInstance *s, void* func) {
 void SignalDestroy(SignalInstance *s) {
     for (int i=0; i<MAX_SIGNAL_CONNECTIONS; i++)
         s->_functions[i]=NULL;
-    s->_connections=0;
+    s->Connections=0;
 }
-
-
-
-// Test Program
-/*
-int foo(va_list args) { 
-    int x = va_arg(args, int), y = va_arg(args, int);
-
-    printf("foo called with %d %d\n", x ,y);
-    return 0;
-}
-
-int bar(va_list args) { 
-    int x = va_arg(args, int), y = va_arg(args, int);
-
-    printf("bar called with %d %d\n", x ,y);
-    return 0;
-}
-
-
-
-
-int main() {
-    struct signal s;
-    int x=11, y=5;
-
-    SignalConnect(&s, foo);
-    SignalConnect(&s, bar);
-    SignalFire(&s, x, y);
-}
-*/

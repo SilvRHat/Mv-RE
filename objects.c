@@ -147,14 +147,14 @@ PartInstance* NewPartInstance() {
     for (int i=0; i<3; i++) {
         p->VertNodes[i] = 0;
         p->FragNodes[i] = 0;
-        for (int j=0; j<4; j++) vec4_dup(p->NodeAttribs[i][j], UNIT4_W);
+        for (int j=0; j<4; j++) vec4_dup(p->NodeAttrs[i][j], UNIT4_W);
     }
-    p->VertNodes[ENUM_NODE_LIGHT] = simpleVertNode() ;
-    p->FragNodes[ENUM_NODE_LIGHT] = simpleFragNode();
-    PartSetNodeAttribByName(p, ENUM_NODE_LIGHT, "n_EmissionColor", (vec4){0,0,0,1});
-    PartSetNodeAttribByName(p, ENUM_NODE_LIGHT, "n_SpecularColor", (vec4){.6,0.6,0.6,1});
-    PartSetNodeAttribByName(p, ENUM_NODE_LIGHT, "n_Shiny", (vec4){2, 0,0,0});
-    PartSetNodeAttribByName(p, ENUM_NODE_LIGHT, "n_Emission", (vec4){0, 0,0,0});
+    p->VertNodes[ENUM_NODE0] = simpleVertNode() ;
+    p->FragNodes[ENUM_NODE0] = simpleFragNode();
+    PartSetNodeAttribByName(p, ENUM_NODE0, "n_EmissionColor", (vec4){0,0,0,1});
+    PartSetNodeAttribByName(p, ENUM_NODE0, "n_SpecularColor", (vec4){.6,0.6,0.6,1});
+    PartSetNodeAttribByName(p, ENUM_NODE0, "n_Shiny", (vec4){2, 0,0,0});
+    PartSetNodeAttribByName(p, ENUM_NODE0, "n_Emission", (vec4){0, 0,0,0});
     
     // Textures
     vec4_set(p->Color, 1.f);
@@ -508,11 +508,105 @@ PartInstance* uvSphere(int segments, int rings, float radius) {
     PartSetSize(p, (vec3){radius*2, radius*2, radius*2});
     p->Vao = *evao;
     p->Vbo = *evbo;
-    p->Vertices = p->Vertices = (rings+1) * (segments+1) * 2;
+    p->Vertices = (rings+1) * (segments+1) * 2;
     p->DrawMode = GL_TRIANGLE_STRIP;
     p->VboReused = ((mem[0]==-1) || (mem[1]==-1))? GL_FALSE : GL_TRUE;
     return p;
 }
+
+// icoSphere
+// Credit: William A. Vlakkies CSCIx239 library
+PartInstance* icoSphere(float radius) {
+    static int init = 0;
+    static GLuint vao, vbo;
+
+    if (!init ){
+        init=1;
+
+        float verts[VERT_ATTRIB_ROW*60] =
+        {
+            // X      Y      Z     W      Nx     Ny     Nz    S   T
+             0.276, 0.851, 0.447, 1.0,  0.471, 0.342, 0.761, 0.0,0.0,
+             0.894, 0.000, 0.447, 1.0,  0.471, 0.342, 0.761, 1.0,0.0,
+             0.000, 0.000, 1.000, 1.0,  0.471, 0.342, 0.761, 0.5,1.0,
+            -0.724, 0.526, 0.447, 1.0, -0.180, 0.553, 0.761, 0.0,0.0,
+             0.276, 0.851, 0.447, 1.0, -0.180, 0.553, 0.761, 1.0,0.0,
+             0.000, 0.000, 1.000, 1.0, -0.180, 0.553, 0.761, 0.5,1.0,
+            -0.724,-0.526, 0.447, 1.0, -0.582, 0.000, 0.762, 0.0,0.0,
+            -0.724, 0.526, 0.447, 1.0, -0.582, 0.000, 0.762, 1.0,0.0,
+             0.000, 0.000, 1.000, 1.0, -0.582, 0.000, 0.762, 0.5,1.0,
+             0.276,-0.851, 0.447, 1.0, -0.180,-0.553, 0.761, 0.0,0.0,
+            -0.724,-0.526, 0.447, 1.0, -0.180,-0.553, 0.761, 1.0,0.0,
+             0.000, 0.000, 1.000, 1.0, -0.180,-0.553, 0.761, 0.5,1.0,
+             0.894, 0.000, 0.447, 1.0,  0.471,-0.342, 0.761, 0.0,0.0,
+             0.276,-0.851, 0.447, 1.0,  0.471,-0.342, 0.761, 1.0,0.0,
+             0.000, 0.000, 1.000, 1.0,  0.471,-0.342, 0.761, 0.5,1.0,
+             0.000, 0.000,-1.000, 1.0,  0.180, 0.553,-0.761, 0.0,0.0,
+             0.724, 0.526,-0.447, 1.0,  0.180, 0.553,-0.761, 1.0,0.0,
+            -0.276, 0.851,-0.447, 1.0,  0.180, 0.553,-0.761, 0.5,1.0,
+             0.000, 0.000,-1.000, 1.0, -0.471, 0.342,-0.761, 0.0,0.0,
+            -0.276, 0.851,-0.447, 1.0, -0.471, 0.342,-0.761, 1.0,0.0,
+            -0.894, 0.000,-0.447, 1.0, -0.471, 0.342,-0.761, 0.5,1.0,
+             0.000, 0.000,-1.000, 1.0, -0.471,-0.342,-0.761, 0.0,0.0,
+            -0.894, 0.000,-0.447, 1.0, -0.471,-0.342,-0.761, 1.0,0.0,
+            -0.276,-0.851,-0.447, 1.0, -0.471,-0.342,-0.761, 0.5,1.0,
+             0.000, 0.000,-1.000, 1.0,  0.180,-0.553,-0.761, 0.0,0.0,
+            -0.276,-0.851,-0.447, 1.0,  0.180,-0.553,-0.761, 1.0,0.0,
+             0.724,-0.526,-0.447, 1.0,  0.180,-0.553,-0.761, 0.5,1.0,
+             0.000, 0.000,-1.000, 1.0,  0.582, 0.000,-0.762, 0.0,0.0,
+             0.724,-0.526,-0.447, 1.0,  0.582, 0.000,-0.762, 1.0,0.0,
+             0.724, 0.526,-0.447, 1.0,  0.582, 0.000,-0.762, 0.5,1.0,
+             0.894, 0.000, 0.447, 1.0,  0.761, 0.552, 0.180, 0.0,0.0,
+             0.276, 0.851, 0.447, 1.0,  0.761, 0.552, 0.180, 1.0,0.0,
+             0.724, 0.526,-0.447, 1.0,  0.761, 0.552, 0.180, 0.5,1.0,
+             0.276, 0.851, 0.447, 1.0, -0.291, 0.894, 0.179, 0.0,0.0,
+            -0.724, 0.526, 0.447, 1.0, -0.291, 0.894, 0.179, 1.0,0.0,
+            -0.276, 0.851,-0.447, 1.0, -0.291, 0.894, 0.179, 0.5,1.0,
+            -0.724, 0.526, 0.447, 1.0, -0.940, 0.000, 0.179, 0.0,0.0,
+            -0.724,-0.526, 0.447, 1.0, -0.940, 0.000, 0.179, 1.0,0.0,
+            -0.894, 0.000,-0.447, 1.0, -0.940, 0.000, 0.179, 0.5,1.0,
+            -0.724,-0.526, 0.447, 1.0, -0.291,-0.894, 0.179, 0.0,0.0,
+             0.276,-0.851, 0.447, 1.0, -0.291,-0.894, 0.179, 1.0,0.0,
+            -0.276,-0.851,-0.447, 1.0, -0.291,-0.894, 0.179, 0.5,1.0,
+             0.276,-0.851, 0.447, 1.0,  0.761,-0.552, 0.180, 0.0,0.0,
+             0.894, 0.000, 0.447, 1.0,  0.761,-0.552, 0.180, 1.0,0.0,
+             0.724,-0.526,-0.447, 1.0,  0.761,-0.552, 0.180, 0.5,1.0,
+             0.276, 0.851, 0.447, 1.0,  0.291, 0.894,-0.179, 0.0,0.0,
+            -0.276, 0.851,-0.447, 1.0,  0.291, 0.894,-0.179, 1.0,0.0,
+             0.724, 0.526,-0.447, 1.0,  0.291, 0.894,-0.179, 0.5,1.0,
+            -0.724, 0.526, 0.447, 1.0, -0.761, 0.552,-0.180, 0.0,0.0,
+            -0.894, 0.000,-0.447, 1.0, -0.761, 0.552,-0.180, 1.0,0.0,
+            -0.276, 0.851,-0.447, 1.0, -0.761, 0.552,-0.180, 0.5,1.0,
+            -0.724,-0.526, 0.447, 1.0, -0.761,-0.552,-0.180, 0.0,0.0,
+            -0.276,-0.851,-0.447, 1.0, -0.761,-0.552,-0.180, 1.0,0.0,
+            -0.894, 0.000,-0.447, 1.0, -0.761,-0.552,-0.180, 0.5,1.0,
+             0.276,-0.851, 0.447, 1.0,  0.291,-0.894,-0.179, 0.0,0.0,
+             0.724,-0.526,-0.447, 1.0,  0.291,-0.894,-0.179, 1.0,0.0,
+            -0.276,-0.851,-0.447, 1.0,  0.291,-0.894,-0.179, 0.5,1.0,
+             0.894, 0.000, 0.447, 1.0,  0.940, 0.000,-0.179, 0.0,0.0,
+             0.724, 0.526,-0.447, 1.0,  0.940, 0.000,-0.179, 1.0,0.0,
+             0.724,-0.526,-0.447, 1.0,  0.940, 0.000,-0.179, 0.5,1.0,
+        };
+        // Divide vertex pos by 2
+        for (int i=0; i<60; i++) for (int j=0; j<3; j++) {
+            verts[VERT_ATTRIB_ROW*i +j]=verts[VERT_ATTRIB_ROW*i +j]/2.;
+        }
+        buildVAOVBO(&vao, &vbo, verts, sizeof(verts));
+    }
+
+    // Create Instance
+    PartInstance* p = NewPartInstance();
+    p->Name = "NewIcoSphere";
+    p->ClassName = "IcoSpherePart";
+    PartSetSize(p, (vec3){radius*2, radius*2, radius*2});
+    p->Vao = vao;
+    p->Vbo = vbo;
+    p->Vertices = 60;
+    p->DrawMode = GL_TRIANGLES;
+    p->VboReused = GL_TRUE;
+    return p;
+}
+
 
 // Cylinder
     // @brief Contructs a part instance for rendering a cylinder
@@ -653,6 +747,7 @@ PartInstance* cylinder(int sides, float radius, float depth) {
 PartInstance* clonePart(PartInstance* src) {
     PartInstance* p = NewPartInstance();
     memcpy(p, src, sizeof(PartInstance));
+    p->Parent = NULL;
     return p;
 }
 
@@ -702,7 +797,18 @@ void PartSetNodeAttribByName(PartInstance* p, GLenum nodetype, char* name, vec4 
     int loc = glGetAttribLocation(node, name);
     if ((loc >= ATTRIB_POS_NODE) && (loc<ATTRIB_POS_NODE+4)) {
         int col = loc - ATTRIB_POS_NODE;
-        vec4_dup(p->NodeAttribs[nodetype][col], val);
+        vec4_dup(p->NodeAttrs[nodetype][col], val);
+    }
+}
+
+void PartSetNodeColorByName(PartInstance* p, GLenum nodetype, char* name, color4 val) {
+    if (!(nodetype<3)) return;
+    
+    GLuint node = p->VertNodes[nodetype];
+    int loc = glGetAttribLocation(node, name);
+    if ((loc >= ATTRIB_POS_NODE) && (loc<ATTRIB_POS_NODE+4)) {
+        int col = loc - ATTRIB_POS_NODE;
+        vec4_from_col(p->NodeAttrs[nodetype][col], val);
     }
 }
 
@@ -738,6 +844,9 @@ void PartRemoveLightGroup(PartInstance* p, GLuint lg) {
 
 
 // LIGHT INSTANCE
+void _PassHander(void* func, va_list args) {
+    ((void(*)())(func))();
+}
 // Generic Constructor/Deconstructor
 LightInstance* NewLightInstance() {
     LightInstance* l = malloc(sizeof(LightInstance));
@@ -755,7 +864,7 @@ LightInstance* NewLightInstance() {
     // Shader settings
     l->OutFBO = 0;
     l->OverShadeNode = 0;
-    l->Noding= ENUM_NODE_LIGHT;
+    l->Noding= ENUM_NODE0;
     l->BlendSrc = GL_ONE; 
     l->BlendDst = GL_ZERO;
 
@@ -772,8 +881,8 @@ LightInstance* NewLightInstance() {
     l->_Malloced = GL_TRUE;
 
     // Events
-    SignalInit(&l->PrePass);
-    SignalInit(&l->PostPass);
+    SignalInit(&l->PrePass, _PassHander);
+    SignalInit(&l->PostPass, _PassHander);
     return l;
 }
 
@@ -793,7 +902,7 @@ LightInstance* globalOcclusion() {
 
     l->LightEnum = ENUM_LIGHT_OCCLUSION;
     l->OutFBO = 0;
-    l->Noding = ENUM_NODE_LIGHT;
+    l->Noding = ENUM_NODE0;
     l->BlendSrc = GL_ONE;
     l->BlendDst = GL_ONE_MINUS_SRC_ALPHA;
     l->LightGroup = GLOBAL_LIGHTGROUP;
@@ -836,6 +945,7 @@ LightInstance* spotLight(float radius, float inner_angle, float outer_angle) {
 LightInstance* cloneLight(LightInstance* l) {
     LightInstance* new = NewLightInstance();
     memcpy(new, l, sizeof(LightInstance));
+    new->Parent = NULL;
     return new;
 }
 
@@ -874,12 +984,13 @@ void LightSetCFrame(LightInstance* l, mat4x4 cf) {
     mat4x4_dup(l->CFrame, cf);
 }
 
-void LightSetIntUniform(LightInstance* l, char* name, GLuint val) {
+void LightSetTexUniform(LightInstance* l, char* name, GLuint val, GLenum target) {
     // Set Existing
     for (int i=0; i<MAX_TEX_UNIFORMS; i++) {
         if (l->TexUniforms[i].Name==NULL) continue;
         if (strcmp(l->TexUniforms[i].Name, name)==0) {
             l->TexUniforms[i].Value = val;
+            l->TexUniforms[i].BindTarget = target;
             return;
         }
     }
@@ -888,6 +999,7 @@ void LightSetIntUniform(LightInstance* l, char* name, GLuint val) {
         if ((l->TexUniforms[i].Name==NULL) || (strcmp(l->TexUniforms[i].Name, "")==0)) {
             l->TexUniforms[i].Name = name;
             l->TexUniforms[i].Value = val;
+            l->TexUniforms[i].BindTarget = target;
             return;
         }
     }
@@ -1043,11 +1155,74 @@ OriginInstance* arcPart(PartInstance* arcit,
     return NULL;
 }
 
-OriginInstance* circlePart(PartInstance* ref,
-                           float radius, int n
-) {
-    // TODO
-    return NULL;
+
+OriginInstance* repeatPart(PartInstance* ref, int num, vec3 range) {
+    OriginInstance* parent = NewOriginInstance();
+
+    for (int i=0; i<num; i++) {
+        PartInstance* ch = clonePart(ref); {
+            vec3 pos;
+            vec3_scale(pos, range, (float)i/(float)(num-1));
+            PartSetPosition(ch, pos);
+            PartSetParent(ch, parent);
+        }
+    }
+
+    return parent;
+}
+
+
+OriginInstance* roof(PartInstance* ref, float width0, float width1, float depth, float height, float in0, float in1) {
+    OriginInstance* parent = NewOriginInstance();
+
+    PartInstance* nwp;
+
+    // Middle
+    nwp = clonePart(ref); {
+        PartSetSize(nwp, (vec3){depth, in0, width0});
+        PartSetPivot(nwp, PIV_TOP);
+        PartSetPosition(nwp, (vec3){0.,height,0.});
+        PartSetParent(nwp, parent);
+    }
+
+    float w2 = (width1-width0)/2;
+    float a = atan(w2/height);
+    float h = sqrt((w2*w2) + (height*height));
+
+    nwp = clonePart(ref); {
+        PartSetSize(nwp, (vec3){depth, h, in1});
+        PartSetPivot(nwp, (vec3){0, PIV_TOP[1], PIV_BCK[2]});
+        PartSetRotation(nwp, (vec3){a, 0., 0.}, EULER_XYZ);
+        PartSetPosition(nwp, (vec3){0., height, -width0/2.});
+        PartSetParent(nwp, parent);
+    }
+    nwp = clonePart(ref); {
+        PartSetSize(nwp, (vec3){depth, h, in1});
+        PartSetPivot(nwp, (vec3){0, PIV_TOP[1], PIV_FWD[2]});
+        PartSetRotation(nwp, (vec3){-a, 0., 0.}, EULER_XYZ);
+        PartSetPosition(nwp, (vec3){0., height, width0/2.});
+        PartSetParent(nwp, parent);
+    }
+
+    return parent;
+}
+
+
+OriginInstance* circlePart(PartInstance* ref, int num,
+                           float degrees, float dist, float incline_angle) {
+    
+
+    OriginInstance* o = NewOriginInstance();
+    for (int i=0; i<num; i++) {
+        float a = TO_RAD * (float)i * degrees/(float)num;
+        PartInstance* p = clonePart(ref); {
+            PartSetParent(p, o);
+            PartSetRotation(p, (vec3){a, incline_angle,0}, EULER_YZX);
+            PartSetPosition(p, (vec3){dist*sin(a), 0, dist*cos(a)});
+        }
+    }
+
+    return o;
 }
 
 OriginInstance* cloneOrigin(OriginInstance* o) {
@@ -1055,7 +1230,6 @@ OriginInstance* cloneOrigin(OriginInstance* o) {
     
     new->Name = o->Name;
     new->ClassName = o->ClassName;
-    new->Parent = o->Parent;
     new->CanRender = o->CanRender;
 
     mat4x4_dup(new->CFrame, o->CFrame);
@@ -1089,6 +1263,7 @@ OriginInstance* cloneOrigin(OriginInstance* o) {
 
 // Methods
 void OriginSetParent(OriginInstance* o, OriginInstance* parent) {
+    if (o==parent) Error("Cannot parent origin to itself");
     if (o->Parent!=NULL)
         _OriginRemoveOrigin(o->Parent, o);
     
@@ -1433,7 +1608,7 @@ void JumpSetOffsets(JumpInstance* j, mat4x4 Off0, mat4x4 Off1) {
     // @return If a Jump Instance is found with the corresponding name, it is returned;
     // Otherwise NULL is returned
 JumpInstance* VerseFindFirstJump(VerseInstance* v, char* Name) {
-    for (int i=0; i<v->NumJumps; i++) {
+    for (int i=0; i<MAX_JUMP_INSTANCES; i++) {
         if ( (v->Jumps[i]!=NULL) && (strcmp(v->Jumps[i]->Name, Name)==0) )
             return v->Jumps[i];
     }
@@ -1612,80 +1787,4 @@ void UpdateShaderFromFile(GLuint SHADER, GLenum type, char* filename) {
     node = NewShaderObjFromFile(type, filename);
     UpdateShaderFromObjs(SHADER, 1, (GLuint[]){node});
     glDeleteShader(node);
-}
-
-
-
-
-
-
-
-
-
-// BUFFERS
-// Simple contructor
-GLuint NewFBO() {
-    GLuint fbo;
-    glGenFramebuffers(1, &fbo);
-    return fbo;
-}
-
-GLuint NewRBOFromData(BufferData* data) {
-    data->Target = GL_RENDERBUFFER;
-    glGenRenderbuffers(1, &data->UName);
-    ResizeRBOFromData(data, 1920, 1080);
-    return data->UName;
-}
-
-GLuint NewTextureFromData(BufferData* data) {
-    glGenTextures(1, &data->UName);
-    glBindTexture(data->Target, data->UName);
-    glTexParameteri(data->Target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(data->Target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    ResizeTextureFromData(data, 1920, 1080, 0);
-    return data->UName;
-}
-
-
-// Methods
-void ResizeRBOFromData(BufferData* data, int width, int height) {
-    // Update dimensions in data
-    data->Dimensions[0] = width;
-    data->Dimensions[1] = height;
-
-    // Update data store
-    glBindRenderbuffer(GL_RENDERBUFFER, data->UName);
-    glRenderbufferStorage(GL_RENDERBUFFER, data->InternalFormat, data->Dimensions[0], data->Dimensions[1]);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
-}
-
-void ResizeTextureFromData(BufferData* data, int width, int height, int depth) {
-    // Update dimensions in data
-    data->Dimensions[0] = width;
-    data->Dimensions[1] = height;
-    data->Dimensions[2] = depth;
-
-    // Update data store
-    glBindTexture(data->Target, data->UName);
-    switch(data->Target) {
-        case GL_TEXTURE_1D:
-            glTexImage1D(
-                data->Target, 0, data->InternalFormat, 
-                data->Dimensions[0], 0, 
-                data->Format, data->Type, NULL); 
-            break;
-        case GL_TEXTURE_2D:
-            glTexImage2D(
-                data->Target, 0, data->InternalFormat, 
-                data->Dimensions[0], data->Dimensions[1], 0, 
-                data->Format, data->Type, NULL); 
-            break;
-        case GL_TEXTURE_3D:
-            glTexImage3D(
-                data->Target, 0, data->InternalFormat, 
-                data->Dimensions[0], data->Dimensions[1], data->Dimensions[2], 0, 
-                data->Format, data->Type, NULL); 
-            break;
-    }
-    glBindTexture(GL_TEXTURE_2D, 0);
 }

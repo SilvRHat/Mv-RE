@@ -1,4 +1,5 @@
 # Multi_verse: RE(Rendering Engine)
+## VERSION 2.1.1
 Gavin Zimmerman
 
 
@@ -6,47 +7,35 @@ Gavin Zimmerman
  Mv:RE is an engine for rendering multi-styled 3D scenes for games, animations, and 3D builds. The engine provides two core pieces: a set of structures for building such projects and a rendering pipeline for drawing them. 
 
 
-## Multi_verse Rendering //
- This method of 3D creating is inspired from Spider-Man: Into the Spider-Verse, which embraces the collaboration of multiple styles together. Mv:RE also embraces this collaboration. The following outlines core technologies in graphics and expands on their use in Mv:RE for rendering multi-styled scenes.
+## Usage //
+ Mv:RE was developed for those who wish to work closely to OpenGL with additional logic for scene/world/objects- programming. Provided with the rendering engine are additional files which compile into an example program [Makefile, main.c/h, camera.c/h, scene.c/h], this provides developers the files to start and become familiar with the engine's framework.
+ Please note, that those example files are developed in a developer's context and are NOT suitable for any production environment due to lack of cross-platform testing and security considerations (namely the ability to rebuild a program while running the previous context hitting b).
 
 
-### Forward-Rendering //
- Forward rendering is a common technique for rendering scenes with multiple/arbitrary light sources, by rendering the objects for each light that affecting it and performing an additive blend on the resulting color. This technique can easily become expensive in heavily-lighted scenes as opposed to other techniques like deferred rendering. The tradeoff here is freedom in shading and is more typical in an animation/mobile game context.
-
-### Shaders //
- Shaders are graphics programs, used for lighting, procedural textures, and many other special purposes. They require state-change which is expensive in the context of graphics, and are often standardized/ grouped by custom material in games for run-time efficiency. 
-
-### Lights //
- In the context of forward-rendering, lights are essentially a rendering pass adding new information into the color buffer through additive blending. Note that this does not translate to one draw call, it simply means any affected parts get rendered under it.
-
-### In the context of Mv:RE //
- - Light Layering - Light instances are provided a property that determines its priority in rendering
- - Light Blending - Lights may customize the blending functions / constants
- - FBO/Light Chaining - Post-processing often involves an initial render to a texture which is read on a secondary pass. Chaining the results of previous passes allows shading processes to be split between multiple passes. For unified calculations like lighting followed by seperate calculations like procedural texturing
- - Noding - Shaders are used for similar tasks, but often differ by parts/materials. These parts are allowed multiple shaders for those similar tasks allowing 2 parts to be shaded differently by the same light
- - Light OverShading - Lights can also opt to shade every part using the same fragment shader (overwriting the shader stages provided by the part)
- - Light Groups - Specifies which parts get affected by which lights; each part by default registers to a global light group to render without lights, but can unregister for unique effects
-
-### Art considerations //
- While it can be easy to combine art styles, it can be very difficult to unify them. Think of your project as a team of differening visuals - you want these visuals to work together rather than clash/ fight. 
-
- Thus when combining art styles establish similarities which will unify them. Having cohesion on some element will enforce the feeling of a shared source in your creations.
-
- Similarly, you want to establish differences which make them unique. Here you want to contrast some element between the two styles which compliment each other. Be careful in establishing this contrast, since not all differences compliment each other the same.
-
- Some elements to think of include: color scheme, shapes/ objects, projection mode, lighting, animation, frame-rate, etc.
+## Examples //
+ Here I provide examples of this framework's usage in both code and visuals, so that any developers who would like to approach it may reference such design.
+ - [Gr@v:f/UX](https://github.com/SilvRHat/gr-v-f-UX)<br>
+ <img src='doc/gravity_flux.png' width='50%'>
 
 
 ## Dependencies //
  - OpenGL 4.1+
  - glfw3
- - MacOS X / Linux
+ - MacOS X / Linux [LIMITED TESTING] / Windows [UNTESTED]
  - gcc
 
 
 ## Files //
  - README
-    - Foreword on Mv:RE
+ - camera.h / camera.c
+    - Camera logic
+ - scene.h / scene.c
+    - Simple Cube Scene decription
+ - main.h / main.c
+    - OpenGL Window Context / Plug-in
+ - Makefile
+    - Source Compilation
+ 
  - MvRE.h
     - Multi_verse:RE Header / Sources dependencies
  - graphics.h

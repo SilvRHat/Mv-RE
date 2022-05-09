@@ -49,6 +49,7 @@ static VerseInstance UI_VERSE = {
     }
 };
 
+
 // RenderCamera
     // @brief Retains camera state
 static CameraData RenderCamera = {
@@ -94,7 +95,7 @@ static void getOrderedLightsFromRender(RenderInstanceData OrderedLights[]) {
         LightInstance* l = RenderStack->Lights[i].Instance;
         sortval[i][0] = l->ZIndex;
         sortval[i][1] = l->LightGroup;
-        sortval[i][2] = l->Noding % ENUM_NODE_LIGHT_OVERSHADE;
+        sortval[i][2] = l->Noding % MAX_NODES;
         sortidx[i] = i;
     }
 
@@ -116,7 +117,7 @@ static void loadSortedAttribDataFromRender(GLuint Noding, GLuint LightGroup) {
     
     
     // Pull index of which node type to use. Modulo converts OPT_OVERSHADE to OPT; see objects.h
-    int nodeI = Noding % ENUM_NODE_LIGHT_OVERSHADE;
+    int nodeI = Noding % MAX_NODES;
     int parts = 0;
 
     // Init sorting data for parts into vector array
@@ -154,8 +155,13 @@ static void loadSortedAttribDataFromRender(GLuint Noding, GLuint LightGroup) {
 
         // Drawing Info
         PartInstance* p = RenderStack->Parts[src].Instance;
-        for (int i=0; i<DRAW_INFO_ROW; i++)
-            RenderStack->DrawData[dst][i] = sortval[src][i];
+        RenderStack->DrawData[dst][0] = p->VertNodes[nodeI];    // Relevant Shaders based on light settings
+        RenderStack->DrawData[dst][1] = p->FragNodes[nodeI];
+        RenderStack->DrawData[dst][2] = p->Vao;
+        RenderStack->DrawData[dst][3] = p->Texture;
+        RenderStack->DrawData[dst][4] = p->DrawMode;
+        RenderStack->DrawData[dst][5] = p->Vertices;
+        
 
         // Populate attribute data
         float attribs[INST_ATTRIB_ROW] = {0};
@@ -164,7 +170,7 @@ static void loadSortedAttribDataFromRender(GLuint Noding, GLuint LightGroup) {
         for (int i=0; i<3; i++)
             vec4_dup(attribs+(i*3 +16), NormalMat[i]);
         for (int i=0; i<4; i++)
-            mat4x4_col(attribs+(i*4 +32), p->NodeAttribs[nodeI], i);
+            mat4x4_col(attribs+(i*4 +32), p->NodeAttrs[nodeI], i);
         vec4_dup(attribs+25, p->Color);
         vec3_dup(attribs+29, p->Size);
 
@@ -184,7 +190,7 @@ static void setNodeUniforms(GLuint node) {
     glProgramUniformMatrix4fv(node, loc, 1, GL_FALSE, (const GLfloat*) Uniforms->ProjectionMat);
     // ClipPlane
     loc = glGetUniformLocation(node, UNI_NAME_CLIPPLANE);
-    glProgramUniform4fv(node, loc, 6, (const GLfloat *) Uniforms->ClipPlane);
+    glProgramUniform4fv(node, loc, 1, (const GLfloat *) Uniforms->ClipPlane);
     // Resolution
     loc = glGetUniformLocation(node, UNI_NAME_RESOLUTION);
     glProgramUniform2fv(node, loc, 1, Uniforms->Resolution);
@@ -208,6 +214,8 @@ static void setNodeUniforms(GLuint node) {
     loc = glGetUniformLocation(node, UNI_NAME_LIGHTCOLOR);
     glProgramUniform4fv(node, loc, 1, l->Color);
 
+    
+
     // Custom Uniforms 
     // Int types
     for (int j=0; j<MAX_TEX_UNIFORMS; j++) {
@@ -218,7 +226,7 @@ static void setNodeUniforms(GLuint node) {
         if (loc<0) continue;
 
         glActiveTexture(GL_TEXTURE1 + j);
-        glBindTexture(GL_TEXTURE_2D, l->TexUniforms[j].Value);
+        glBindTexture(l->TexUniforms[j].BindTarget, l->TexUniforms[j].Value);
         glProgramUniform1i(node, loc, j+1);
         glActiveTexture(GL_TEXTURE0);
     }
@@ -286,7 +294,7 @@ static void lightRenderPass(LightInstance* l) {
     glBindProgramPipeline(ShaderPipe);
     for (int i=0; i<RenderStack->NumDrawing; i++) {
         GLuint active_text = (l->UseTexture)? RenderStack->DrawData[i][3] : 0;
-        GLuint active_frag = (l->Noding >= ENUM_NODE_LIGHT_OVERSHADE)? l->OverShadeNode : RenderStack->DrawData[i][1];
+        GLuint active_frag = (l->Noding >= ENUM_NODE0_OVERSHADE)? l->OverShadeNode : RenderStack->DrawData[i][1];
         // Evaluate Changes
         GLboolean IsDiffFragNode = active_frag != fragnode;
         GLboolean IsDiffTexture  = active_text != texture;
@@ -295,20 +303,20 @@ static void lightRenderPass(LightInstance* l) {
         GLboolean IsDiffDrawmode = RenderStack->DrawData[i][4] != drawmode;
         GLboolean IsDiffVertices = RenderStack->DrawData[i][5] != verts;
 
-
         // Any change in state requires new gldraw call / attribute writing
         if (IsDiffVertNode || IsDiffFragNode || IsDiffVao || IsDiffTexture || 
             IsDiffDrawmode || IsDiffVertices || (count >= INST_ATTRIB_COL)
         ) {
             // Draw last set of data
-            if (count>0) {
+            if ((count>0) && (vertnode>0) && (fragnode>0)) {
+                glPatchParameteri(GL_PATCH_VERTICES, 3);
                 glDrawArraysInstanced(drawmode, 0, verts, count);
                 drawcalls++;
             }
             count=0;
             
             // Update attribs
-            int size = sizeof(RenderStack->AttribData[0]) * min((MAX_PART_INSTANCES-i), INST_ATTRIB_COL);
+            int size = sizeof(RenderStack->AttribData[0]) * min((MAX_BATCH_PART_INSTANCES-i), INST_ATTRIB_COL);
             glBindBuffer(GL_ARRAY_BUFFER, getInstancedAttribVBO());
             glBufferSubData(GL_ARRAY_BUFFER, 0, size, RenderStack->AttribData[i]);
             glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -331,6 +339,7 @@ static void lightRenderPass(LightInstance* l) {
             vertnode = RenderStack->DrawData[i][0];
             fragnode = active_frag;
             
+            
             glUseProgramStages(
                 ShaderPipe, 
                 GL_VERTEX_SHADER_BIT | GL_GEOMETRY_SHADER_BIT | 
@@ -348,7 +357,7 @@ static void lightRenderPass(LightInstance* l) {
         }
         count++;
     }
-    if (count>0) {
+    if ((count>0) && (vertnode>0) && (fragnode>0)) {
         glDrawArraysInstanced(drawmode, 0, verts, count);
         drawcalls++;
     }
@@ -380,11 +389,9 @@ static void flushRender() {
             }
 
             // Set basic blending
-            if ((l->BlendSrc>0) && (l->BlendDst>0)) {
+            {
                 glEnable(GL_BLEND);
                 glBlendFunc(l->BlendSrc, l->BlendDst);
-            } else {
-                glDisable(GL_BLEND);
             }
 
             // Set new uniforms
@@ -394,19 +401,12 @@ static void flushRender() {
             // Bind Frame Buffer
             glBindFramebuffer(GL_FRAMEBUFFER, l->OutFBO);
 
-            // Use existing depth / closer depth (99% of uses, specialized passes can use pre-pass event caller)
-            glDepthFunc(GL_LEQUAL);
-
             // Run pass
             SignalFire(&l->PrePass);
             lightRenderPass(l);
             SignalFire(&l->PostPass);
         }
-
-        // Use less depth for additional render flush calls
-        glDepthFunc(GL_LESS);
     }
-    glDisable(GL_BLEND);
     RenderStack->NumLights = 0;
     RenderStack->NumParts = 0;
 
@@ -476,6 +476,7 @@ void renderStep(GLFWwindow* window, float time, float step) {
     glfwGetCursorPos(window, &cursorX, &cursorY);
     drawcalls=0;
 
+    SignalFire(&PreRender);
 
     // Setup a stack on verses to render
     RenderJumpData VerseStack[MAX_RENDER_VERSES];
@@ -695,22 +696,28 @@ void renderStep(GLFWwindow* window, float time, float step) {
 }
 
 
+
 // renderInit
     // @brief Initializes rendering pipeline resources and opengl state
     // @param window The glfw context window
 void renderInit(GLFWwindow* window) {
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
+    SignalInit(&PreRender, NULL);
+    SignalInit(&PostRender, NULL);
+
 
     // Enable Technologies // face-culling and user-clipping
     glEnable(GL_CULL_FACE);
     glCullFace(GL_FRONT);
     glEnable(GL_CLIP_DISTANCE0);
+    glDepthFunc(GL_LEQUAL);
     
     // Allocate and init objects
     UI_VERSE.Build(window);
-    RenderStack = malloc(sizeof(RenderData));
     Uniforms = malloc(sizeof(UniformData));
+    RenderStack = malloc(sizeof(RenderData));
+    RenderStack->NumLights = RenderStack->NumParts = RenderStack->NumDrawing = 0;
 }
 
 

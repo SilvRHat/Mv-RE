@@ -71,7 +71,7 @@ GLuint getInstancedAttribVBO();
 // Max Child Instances (per appropriate parent instance)
 #define MAX_PART_INSTANCES      1024    // OriginInstance
 #define MAX_LIGHT_INSTANCES     256     // OriginInstance
-#define MAX_ORIGIN_INSTANCES    256     // OriginInstance
+#define MAX_ORIGIN_INSTANCES    1024    // OriginInstance
 #define MAX_JUMP_INSTANCES      64      // VerseInstance
 #define MAX_LIGHTGROUPS         32      // PartInstance
 #define MAX_VEC_UNIFORMS        16      // LightInstance
@@ -105,12 +105,14 @@ GLuint getInstancedAttribVBO();
 #define ENUM_LIGHT_OCCLUSION    4
 
 
-#define ENUM_NODE_LIGHT        0
-#define ENUM_NODE_TEXTURE      1
-#define ENUM_NODE_SPECIAL      2
-#define ENUM_NODE_LIGHT_OVERSHADE      3
-#define ENUM_NODE_TEXTURE_OVERSHADE    4
-#define ENUM_NODE_SPECIAL_OVERSHADE    5
+#define MAX_NODES               3
+
+#define ENUM_NODE0              0
+#define ENUM_NODE1              1
+#define ENUM_NODE2              2
+#define ENUM_NODE0_OVERSHADE    MAX_NODES+0
+#define ENUM_NODE1_OVERSHADE    MAX_NODES+1
+#define ENUM_NODE2_OVERSHADE    MAX_NODES+2
 
 
 // Shader attribute layout positions
@@ -150,6 +152,7 @@ GLuint getInstancedAttribVBO();
 struct TexUniformData_s {
     char* Name;
     GLuint Value;
+    GLenum BindTarget;
 };
 typedef struct TexUniformData_s TexUniformData;
 
@@ -208,9 +211,10 @@ struct PartInstance_s {
     mat4x4 CFrame;
 
     // Shader Panel
-    GLuint VertNodes[3];    // Includes all vertex processing stages
-    GLuint FragNodes[3];
-    mat4x4 NodeAttribs[3];
+    GLuint PipeNodes[MAX_NODES];
+    GLuint VertNodes[MAX_NODES];
+    GLuint FragNodes[MAX_NODES];
+    mat4x4 NodeAttrs[MAX_NODES];
 
     // Texturing
     vec4 Color;
@@ -221,6 +225,7 @@ struct PartInstance_s {
     GLenum DrawMode;
     GLuint Vao, Vbo;
     GLboolean VboReused;
+    GLboolean SeperatedNodes;
     unsigned int Vertices;
 
     // Internal
@@ -241,9 +246,10 @@ struct LightInstance_s {
 
     // Shader settings
     GLuint OutFBO;
-    GLuint OverShadeNode;
     GLenum Noding;
+    GLuint OverShadeNode;
     GLenum BlendSrc, BlendDst;
+    mat4x4 ProjectionMatrix;
 
     int ZIndex;
     GLuint LightGroup;
@@ -258,7 +264,7 @@ struct LightInstance_s {
     GLboolean _Malloced;
 
     // Events
-    SignalInstance PrePass;     // Set DrawBuffers, Blending here
+    SignalInstance PrePass;
     SignalInstance PostPass;
 };
 
@@ -307,12 +313,12 @@ struct VerseInstance_s {
     // Book Keeping
     char* Name;
     char *ClassName;
-    mat4x4 ProjectionMatrix;
 
     // Components
     GLuint NumJumps;
     OriginInstance Root;
     JumpInstance*  Jumps[MAX_JUMP_INSTANCES];
+    mat4x4 ProjectionMatrix;    // Only used in portal clipping
 
     // Per-Instance Methods
         // @brief Function to construct/ init the verse instance
@@ -345,6 +351,7 @@ PartInstance* canvas(float size);
 PartInstance* circle(int sides, float radius);
 PartInstance* cube(float size);
 PartInstance* uvSphere(int segments, int rings, float radius);
+PartInstance* icoSphere(float radius);
 PartInstance* cylinder(int sides, float radius, float depth);
 PartInstance* clonePart(PartInstance* p);
 
@@ -359,6 +366,7 @@ void PartSetPosition(PartInstance* p, vec3 pos);
 void PartSetRotation(PartInstance* p, vec3 rot, int euler_order);
 void PartSetCFrame(PartInstance* p, mat4x4 cf);
 void PartSetNodeAttribByName(PartInstance* p, GLenum nodetype, char* name, vec4 val);
+void PartSetNodeColorByName(PartInstance* p, GLenum nodetype, char* name, color4 val);
 void PartSetColor(PartInstance* p, color4 col);
 void PartAddLightGroup(PartInstance* p, GLuint lg);
 void PartRemoveLightGroup(PartInstance* p, GLuint lg);
@@ -386,7 +394,7 @@ void LightSetColor(LightInstance* l, color4 col);
 void LightSetPosition(LightInstance* l, vec3 pos);
 void LightSetRotation(LightInstance* l, vec3 rot, int euler_order);
 void LightSetCFrame(LightInstance* l, mat4x4 cf);
-void LightSetTexUniform(LightInstance* l, char* name, GLuint val);
+void LightSetTexUniform(LightInstance* l, char* name, GLuint val, GLenum target);
 void LightSetVecUniform(LightInstance* l, char* name, float val[], int n);
 void LightSetMatUniform(LightInstance* l, char* name, mat4x4 val, int n, int m);
 void LightRemoveTexUniform(LightInstance* l, char* name);
@@ -402,11 +410,14 @@ OriginInstance* NewOriginInstance();
 void* DestroyOriginInstance(OriginInstance* o);
 
 // Custom model constructors
+OriginInstance* roof(PartInstance* ref, float width0, float width1, float depth, float height, float in0, float in1);
+OriginInstance* repeatPart(PartInstance* ref, int num, vec3 range);
 OriginInstance* arcPart(PartInstance* arcit,
                         vec3 pos, vec3 rot, vec3 scale, 
                         double a, double width, int n);
-OriginInstance* circlePart(PartInstance* ref,
-                           float radius, int n);
+
+OriginInstance* circlePart(PartInstance* ref, int num,
+                           float degrees, float dist, float incline_angle);
 
 OriginInstance* cloneOrigin(OriginInstance* o);
 
@@ -462,17 +473,5 @@ GLuint simpleFragNode();
 void UpdateShaderFromObjs(GLuint shader, int n, GLuint objs[]);
 void UpdateShaderFromFile(GLuint shader, GLenum type, char* filename);
 
-
-
-
-// BUFFERS
-// Simple contructors
-GLuint NewFBO();
-GLuint NewRBOFromData(BufferData* data);
-GLuint NewTextureFromData(BufferData* data);
-
-// Methods
-void ResizeRBOFromData(BufferData* data, int width, int height);
-void ResizeTextureFromData(BufferData* data, int width, int height, int depth);
 
 #endif
